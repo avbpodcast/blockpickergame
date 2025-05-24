@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.2, user-scalable=yes">
+  <title>"Blockpicker" Entropy Game (a BIP39 seed generator)</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #222;
+      color: #eee;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .main-container {
+      max-width: 95vw;
+      width: 100%;
+      margin: 10px auto;
+      background: #2a2a2a;
+      border-radius: 16px;
+      padding: 16px;
+      position: relative;
+      box-shadow: 0 4px 16px #0007;
+      box-sizing: border-box;
+    }
+
+    h1 {
+      text-align: center;
+      margin-top: 0;
+      font-size: 1.6rem;
+      color: #ffb300;
+    }
+
+    #style-container {
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    #status {
+      text-align: center;
+      margin-bottom: 12px;
+      font-size: 1.1rem;
+    }
+
+    #status.status-complete {
+      color: #4caf50;
+      font-weight: bold;
+    }
+
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 5px;
+      justify-content: center;
+      margin: 12px auto;
+      max-width: 100%;
+      width: calc(min(90vw, 360px));
+      box-sizing: border-box;
+      padding: 4px;
+      overflow: visible;
+      position: relative;
+    }
+
+    .block {
+      width: 100%;
+      aspect-ratio: 1/1;
+      min-width: 24px;
+      max-width: 30px;
+      background: #444;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s;
+      border: 2px solid #333;
+      position: relative;
+      user-select: none;
+      -webkit-tap-highlight-color: rgba(255, 179, 0, 0.5);
+      box-sizing: border-box;
+    }
+
+    .block:active {
+      background: #555;
+    }
+
+    .block.selected {
+      background: #4caf50;
+      border: 2px solid #81c784;
+    }
+
+    .block.computer {
+      background: #b0b0b0;
+      border: 2px solid #d0d0d0;
+    }
+
+    .block.blocked {
+      background: #888;
+      cursor: not-allowed;
+      border: 2px solid #666;
+    }
+
+    .block.blockedBoxFixed {
+      background: repeating-linear-gradient(
+        135deg,
+        #888 0px, #bbb 8px, #888 16px
+      ) !important;
+      border: 2px solid #666 !important;
+      cursor: not-allowed !important;
+      box-shadow: 0 0 6px #2228 inset;
+      position: relative;
+    }
+
+    .block.placementCandidate {
+      background: #ffb300;
+      border: 3px solid #ffa000;
+      cursor: pointer !important;
+      z-index: 10;
+      box-shadow: 0 0 8px rgba(255, 179, 0, 1);
+    }
+
+    .block.placementCandidate:active {
+      background: #ffa000;
+    }
+
+    .btn {
+      display: inline-block;
+      background: linear-gradient(90deg, #ffb300 0, #ffa000 100%);
+      color: #222;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 20px;
+      font-size: 1rem;
+      margin: 6px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px #0003;
+      transition: background 0.18s, color 0.18s;
+      outline: none;
+      min-width: 100px;
+      min-height: 44px;
+    }
+
+    .btn:disabled {
+      background: #666;
+      color: #999;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .btn:active {
+      background: #ffa000;
+    }
+
+    .btn:hover, .btn:focus {
+      background: linear-gradient(90deg, #ffa000 0, #ffb300 100%);
+      color: #111;
+    }
+
+    .btn:disabled:hover, .btn:disabled:focus {
+      background: #666;
+      color: #999;
+    }
+
+    #resetBtn {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      z-index: 100;
+      margin: 3px;
+      padding: 8px 16px;
+      min-width: 80px;
+      min-height: 40px;
+    }
+
+    #genSeedBtn {
+      display: block;
+      margin: 12px auto;
+    }
+
+    #hash {
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    #hash-label {
+      font-family: "Fira Mono", "Consolas", "Menlo", monospace;
+      font-size: 1rem;
+      color: #ffb300;
+      margin-bottom: 4px;
+      display: block;
+      letter-spacing: 0.01em;
+    }
+
+    #hash pre {
+      font-family: "Fira Mono", "Consolas", "Menlo", monospace;
+      font-size: 0.9rem;
+      background: #181818;
+      color: #ffb300;
+      padding: 10px 12px;
+      border-radius: 8px;
+      display: inline-block;
+      margin: 0 auto;
+      user-select: all;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      white-space: pre-wrap;
+      max-width: 90%;
+    }
+
+    #mnemonic {
+      margin: 16px 0;
+      text-align: center;
+    }
+
+    #mnemonic .seed-words {
+      display: inline-block;
+      font-family: "Fira Mono", "Consolas", "Menlo", monospace;
+      font-size: 1rem;
+      background: #181818;
+      color: #81c784;
+      padding: 10px 12px;
+      border-radius: 8px;
+      user-select: all;
+      word-break: break-word;
+      text-align: left;
+      line-height: 1.5;
+      max-width: 90%;
+    }
+
+    .overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 20;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .overlay-text {
+      font-size: 1.5rem;
+      color: #ffb300;
+      text-align: center;
+      padding: 20px;
+      background: #181818;
+      border-radius: 8px;
+      border: 2px solid #ffa000;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    footer {
+      margin-top: 20px;
+      padding: 12px 0;
+      background: #181818;
+      color: #ccc;
+      text-align: center;
+      font-size: 0.9rem;
+      border-top: 1px solid #333;
+      border-radius: 0 0 16px 16px;
+    }
+
+    footer a {
+      color: #ffb300;
+      text-decoration: none;
+      margin: 0 10px;
+      font-weight: bold;
+      transition: color 0.15s;
+    }
+
+    footer a:hover {
+      color: #fff;
+      text-decoration: underline;
+    }
+
+    .footer-version {
+      color: #888;
+      font-size: 0.85rem;
+      margin-left: 10px;
+    }
+
+    @media (max-width: 400px) {
+      .main-container {
+        margin: 8px;
+        padding: 12px;
+      }
+
+      h1 {
+        font-size: 1.4rem;
+      }
+
+      #grid {
+        gap: 4px;
+        width: calc(min(90vw, 320px));
+      }
+
+      .block {
+        min-width: 22px;
+        max-width: 26px;
+      }
+
+      .block.placementCandidate {
+        background: #ffb300;
+        border: 3px solid #ffa000;
+        box-shadow: 0 0 10px rgba(255, 179, 0, 1);
+      }
+
+      .btn {
+        padding: 8px 16px;
+        font-size: 0.9rem;
+        min-width: 80px;
+      }
+
+      #resetBtn {
+        top: 9px;
+        right: 9px;
+        margin: 3px;
+        padding: 5px 10px;
+        font-size: 0.8rem;
+        min-width: 60px;
+        min-height: 32px;
+      }
+
+      #style-container select {
+        font-size: 0.9rem;
+        padding: 6px;
+        width: 80%;
+        max-width: 180px;
+      }
+
+      #styleDesc {
+        font-size: 0.85rem;
+        display: block;
+        margin-top: 6px;
+      }
+
+      #status {
+        font-size: 0.95rem;
+      }
+
+      #hash pre {
+        font-size: 0.85rem;
+        padding: 8px;
+        max-width: 85%;
+      }
+
+      #mnemonic .seed-words {
+        font-size: 0.85rem;
+        padding: 8px;
+      }
+
+      .overlay-text {
+        font-size: 1.2rem;
+        padding: 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="main-container">
+    <button id="resetBtn" class="btn">Reset</button>
+    <h1>Blockpicker</h1>
+    <div id="style-container">
+      <label for="compStyle" style="font-weight:bold;">Computer Style:</label>
+      <select id="compStyle" style="font-size:1em;padding:4px 12px;border-radius:6px;">
+        <option value="wild">Wild (random)</option>
+        <option value="orderly">Orderly (rows/columns)</option>
+        <option value="follower">Follower (near your pick)</option>
+        <option value="random">Random Style</option>
+      </select>
+      <span id="styleDesc" style="margin-left:12px;font-size:0.95em;color:#ffb300;"></span>
+    </div>
+    <div id="status">Your turn: pick a block!</div>
+    <div id="grid">
+      <div id="startOverlay" class="overlay">
+        <div class="overlay-text">Pick a block</div>
+      </div>
+      <div id="seedOverlay" class="overlay hidden">
+        <div class="overlay-text">If you like this game consider our tip-jar at the bottom, v4v</div>
+      </div>
+    </div>
+    <button id="genSeedBtn" class="btn" disabled>Get 24 word seed phrase</button>
+    <div id="hash"></div>
+    <div id="mnemonic"></div>
+  </div>
+  <footer>
+    <a href="https://allesvoorbitcoin.be/" target="_blank" rel="noopener">Home</a>
+    <a href="https://primal.net/p/nprofile1qqsgvudxu5vg7ul8w3kv7rw3dxl55eu9gw9h9sfplqalllgylzqef5gndpqdh" target="_blank" rel="noopener">Contact</a>
+    <a href="https://allesvoorbitcoin.be/donate" target="_blank" rel="noopener">Tip Jar</a>
+    <span class="footer-version">v1.2</span>
+  </footer>
+  <script>
+    // --- BIP39 Wordlist (truncated to 10 words as requested) ---
+    const BIP39_WORDS = ["abandon", "ability", "able", "about", "above", "absent", "absorb", "abstract", "absurd", "abuse", "access", "accident", "account", "accuse", "achieve", "acid", "acoustic", "acquire", "across", "act", "action", "actor", "actress", "actual", "adapt", "add", "addict", "address", "adjust", "admit", "adult", "advance", "advice", "aerobic", "affair", "afford", "afraid", "again", "age", "agent", "agree", "ahead", "aim", "air", "airport", "aisle", "alarm", "album", "alcohol", "alert", "alien", "all", "alley", "allow", "almost", "alone", "alpha", "already", "also", "alter", "always", "amateur", "amazing", "among", "amount", "amused", "analyst", "anchor", "ancient", "anger", "angle", "angry", "animal", "ankle", "announce", "annual", "another", "answer", "antenna", "antique", "anxiety", "any", "apart", "apology", "appear", "apple", "approve", "april", "arch", "arctic", "area", "arena", "argue", "arm", "armed", "armor", "army", "around", "arrange", "arrest", "arrive", "arrow", "art", "artefact", "artist", "artwork", "ask", "aspect", "assault", "asset", "assist", "assume", "asthma", "athlete", "atom", "attack", "attend", "attitude", "attract", "auction", "audit", "august", "aunt", "author", "auto", "autumn", "average", "avocado", "avoid", "awake", "aware", "away", "awesome", "awful", "awkward", "axis", "baby", "bachelor", "bacon", "badge", "bag", "balance", "balcony", "ball", "bamboo", "banana", "banner", "bar", "barely", "bargain", "barrel", "base", "basic", "basket", "battle", "beach", "bean", "beauty", "because", "become", "beef", "before", "begin", "behave", "behind", "believe", "below", "belt", "bench", "benefit", "best", "betray", "better", "between", "beyond", "bicycle", "bid", "bike", "bind", "biology", "bird", "birth", "bitter", "black", "blade", "blame", "blanket", "blast", "bleak", "bless", "blind", "blood", "blossom", "blouse", "blue", "blur", "blush", "board", "boat", "body", "boil", "bomb", "bone", "bonus", "book", "boost", "border", "boring", "borrow", "boss", "bottom", "bounce", "box", "boy", "bracket", "brain", "brand", "brass", "brave", "bread", "breeze", "brick", "bridge", "brief", "bright", "bring", "brisk", "broccoli", "broken", "bronze", "broom", "brother", "brown", "brush", "bubble", "buddy", "budget", "buffalo", "build", "bulb", "bulk", "bullet", "bundle", "bunker", "burden", "burger", "burst", "bus", "business", "busy", "butter", "buyer", "buzz", "cabbage", "cabin", "cable", "cactus", "cage", "cake", "call", "calm", "camera", "camp", "can", "canal", "cancel", "candy", "cannon", "canoe", "canvas", "canyon", "capable", "capital", "captain", "car", "carbon", "card", "cargo", "carpet", "carry", "cart", "case", "cash", "casino", "castle", "casual", "cat", "catalog", "catch", "category", "cattle", "caught", "cause", "caution", "cave", "ceiling", "celery", "cement", "census", "century", "cereal", "certain", "chair", "chalk", "champion", "change", "chaos", "chapter", "charge", "chase", "chat", "cheap", "check", "cheese", "chef", "cherry", "chest", "chicken", "chief", "child", "chimney", "choice", "choose", "chronic", "chuckle", "chunk", "churn", "cigar", "cinnamon", "circle", "citizen", "city", "civil", "claim", "clap", "clarify", "claw", "clay", "clean", "clerk", "clever", "click", "client", "cliff", "climb", "clinic", "clip", "clock", "clog", "close", "cloth", "cloud", "clown", "club", "clump", "cluster", "clutch", "coach", "coast", "coconut", "code", "coffee", "coil", "coin", "collect", "color", "column", "combine", "come", "comfort", "comic", "common", "company", "concert", "conduct", "confirm", "congress", "connect", "consider", "control", "convince", "cook", "cool", "copper", "copy", "coral", "core", "corn", "correct", "cost", "cotton", "couch", "country", "couple", "course", "cousin", "cover", "coyote", "crack", "cradle", "craft", "cram", "crane", "crash", "crater", "crawl", "crazy", "cream", "credit", "creek", "crew", "cricket", "crime", "crisp", "critic", "crop", "cross", "crouch", "crowd", "crucial", "cruel", "cruise", "crumble", "crunch", "crush", "cry", "crystal", "cube", "culture", "cup", "cupboard", "curious", "current", "curtain", "curve", "cushion", "custom", "cute", "cycle", "dad", "damage", "damp", "dance", "danger", "daring", "dash", "daughter", "dawn", "day", "deal", "debate", "debris", "decade", "december", "decide", "decline", "decorate", "decrease", "deer", "defense", "define", "defy", "degree", "delay", "deliver", "demand", "demise", "denial", "dentist", "deny", "depart", "depend", "deposit", "depth", "deputy", "derive", "describe", "desert", "design", "desk", "despair", "destroy", "detail", "detect", "develop", "device", "devote", "diagram", "dial", "diamond", "diary", "dice", "diesel", "diet", "differ", "digital", "dignity", "dilemma", "dinner", "dinosaur", "direct", "dirt", "disagree", "discover", "disease", "dish", "dismiss", "disorder", "display", "distance", "divert", "divide", "divorce", "dizzy", "doctor", "document", "dog", "doll", "dolphin", "domain", "donate", "donkey", "donor", "door", "dose", "double", "dove", "draft", "dragon", "drama", "drastic", "draw", "dream", "dress", "drift", "drill", "drink", "drip", "drive", "drop", "drum", "dry", "duck", "dumb", "dune", "during", "dust", "dutch", "duty", "dwarf", "dynamic", "eager", "eagle", "early", "earn", "earth", "easily", "east", "easy", "echo", "ecology", "economy", "edge", "edit", "educate", "effort", "egg", "eight", "either", "elbow", "elder", "electric", "elegant", "element", "elephant", "elevator", "elite", "else", "embark", "embody", "embrace", "emerge", "emotion", "employ", "empower", "empty", "enable", "enact", "end", "endless", "endorse", "enemy", "energy", "enforce", "engage", "engine", "enhance", "enjoy", "enlist", "enough", "enrich", "enroll", "ensure", "enter", "entire", "entry", "envelope", "episode", "equal", "equip", "era", "erase", "erode", "erosion", "error", "erupt", "escape", "essay", "essence", "estate", "eternal", "ethics", "evidence", "evil", "evoke", "evolve", "exact", "example", "excess", "exchange", "excite", "exclude", "excuse", "execute", "exercise", "exhaust", "exhibit", "exile", "exist", "exit", "exotic", "expand", "expect", "expire", "explain", "expose", "express", "extend", "extra", "eye", "eyebrow", "fabric", "face", "faculty", "fade", "faint", "faith", "fall", "false", "fame", "family", "famous", "fan", "fancy", "fantasy", "farm", "fashion", "fat", "fatal", "father", "fatigue", "fault", "favorite", "feature", "february", "federal", "fee", "feed", "feel", "female", "fence", "festival", "fetch", "fever", "few", "fiber", "fiction", "field", "figure", "file", "film", "filter", "final", "find", "fine", "finger", "finish", "fire", "firm", "first", "fiscal", "fish", "fit", "fitness", "fix", "flag", "flame", "flash", "flat", "flavor", "flee", "flight", "flip", "float", "flock", "floor", "flower", "fluid", "flush", "fly", "foam", "focus", "fog", "foil", "fold", "follow", "food", "foot", "force", "forest", "forget", "fork", "fortune", "forum", "forward", "fossil", "foster", "found", "fox", "fragile", "frame", "frequent", "fresh", "friend", "fringe", "frog", "front", "frost", "frown", "frozen", "fruit", "fuel", "fun", "funny", "furnace", "fury", "future", "gadget", "gain", "galaxy", "gallery", "game", "gap", "garage", "garbage", "garden", "garlic", "garment", "gas", "gasp", "gate", "gather", "gauge", "gaze", "general", "genius", "genre", "gentle", "genuine", "gesture", "ghost", "giant", "gift", "giggle", "ginger", "giraffe", "girl", "give", "glad", "glance", "glare", "glass", "glide", "glimpse", "globe", "gloom", "glory", "glove", "glow", "glue", "goat", "goddess", "gold", "good", "goose", "gorilla", "gospel", "gossip", "govern", "gown", "grab", "grace", "grain", "grant", "grape", "grass", "gravity", "great", "green", "grid", "grief", "grit", "grocery", "group", "grow", "grunt", "guard", "guess", "guide", "guilt", "guitar", "gun", "gym", "habit", "hair", "half", "hammer", "hamster", "hand", "happy", "harbor", "hard", "harsh", "harvest", "hat", "have", "hawk", "hazard", "head", "health", "heart", "heavy", "hedgehog", "height", "hello", "helmet", "help", "hen", "hero", "hidden", "high", "hill", "hint", "hip", "hire", "history", "hobby", "hockey", "hold", "hole", "holiday", "hollow", "home", "honey", "hood", "hope", "horn", "horror", "horse", "hospital", "host", "hotel", "hour", "hover", "hub", "huge", "human", "humble", "humor", "hundred", "hungry", "hunt", "hurdle", "hurry", "hurt", "husband", "hybrid", "ice", "icon", "idea", "identify", "idle", "ignore", "ill", "illegal", "illness", "image", "imitate", "immense", "immune", "impact", "impose", "improve", "impulse", "inch", "include", "income", "increase", "index", "indicate", "indoor", "industry", "infant", "inflict", "inform", "inhale", "inherit", "initial", "inject", "injury", "inmate", "inner", "innocent", "input", "inquiry", "insane", "insect", "inside", "inspire", "install", "intact", "interest", "into", "invest", "invite", "involve", "iron", "island", "isolate", "issue", "item", "ivory", "jacket", "jaguar", "jar", "jazz", "jealous", "jeans", "jelly", "jewel", "job", "join", "joke", "journey", "joy", "judge", "juice", "jump", "jungle", "junior", "junk", "just", "kangaroo", "keen", "keep", "ketchup", "key", "kick", "kid", "kidney", "kind", "kingdom", "kiss", "kit", "kitchen", "kite", "kitten", "kiwi", "knee", "knife", "knock", "know", "lab", "label", "labor", "ladder", "lady", "lake", "lamp", "language", "laptop", "large", "later", "latin", "laugh", "laundry", "lava", "law", "lawn", "lawsuit", "layer", "lazy", "leader", "leaf", "learn", "leave", "lecture", "left", "leg", "legal", "legend", "leisure", "lemon", "lend", "length", "lens", "leopard", "lesson", "letter", "level", "liar", "liberty", "library", "license", "life", "lift", "light", "like", "limb", "limit", "link", "lion", "liquid", "list", "little", "live", "lizard", "load", "loan", "lobster", "local", "lock", "logic", "lonely", "long", "loop", "lottery", "loud", "lounge", "love", "loyal", "lucky", "luggage", "lumber", "lunar", "lunch", "luxury", "lyrics", "machine", "mad", "magic", "magnet", "maid", "mail", "main", "major", "make", "mammal", "man", "manage", "mandate", "mango", "mansion", "manual", "maple", "marble", "march", "margin", "marine", "market", "marriage", "mask", "mass", "master", "match", "material", "math", "matrix", "matter", "maximum", "maze", "meadow", "mean", "measure", "meat", "mechanic", "medal", "media", "melody", "melt", "member", "memory", "mention", "menu", "mercy", "merge", "merit", "merry", "mesh", "message", "metal", "method", "middle", "midnight", "milk", "million", "mimic", "mind", "minimum", "minor", "minute", "miracle", "mirror", "misery", "miss", "mistake", "mix", "mixed", "mixture", "mobile", "model", "modify", "mom", "moment", "monitor", "monkey", "monster", "month", "moon", "moral", "more", "morning", "mosquito", "mother", "motion", "motor", "mountain", "mouse", "move", "movie", "much", "muffin", "mule", "multiply", "muscle", "museum", "mushroom", "music", "must", "mutual", "myself", "mystery", "myth", "naive", "name", "napkin", "narrow", "nasty", "nation", "nature", "near", "neck", "need", "negative", "neglect", "neither", "nephew", "nerve", "nest", "net", "network", "neutral", "never", "news", "next", "nice", "night", "noble", "noise", "nominee", "noodle", "normal", "north", "nose", "notable", "note", "nothing", "notice", "novel", "now", "nuclear", "number", "nurse", "nut", "oak", "obey", "object", "oblige", "obscure", "observe", "obtain", "obvious", "occur", "ocean", "october", "odor", "off", "offer", "office", "often", "oil", "okay", "old", "olive", "olympic", "omit", "once", "one", "onion", "online", "only", "open", "opera", "opinion", "oppose", "option", "orange", "orbit", "orchard", "order", "ordinary", "organ", "orient", "original", "orphan", "ostrich", "other", "outdoor", "outer", "output", "outside", "oval", "oven", "over", "own", "owner", "oxygen", "oyster", "ozone", "pact", "paddle", "page", "pair", "palace", "palm", "panda", "panel", "panic", "panther", "paper", "parade", "parent", "park", "parrot", "party", "pass", "patch", "path", "patient", "patrol", "pattern", "pause", "pave", "payment", "peace", "peanut", "pear", "peasant", "pelican", "pen", "penalty", "pencil", "people", "pepper", "perfect", "permit", "person", "pet", "phone", "photo", "phrase", "physical", "piano", "picnic", "picture", "piece", "pig", "pigeon", "pill", "pilot", "pink", "pioneer", "pipe", "pistol", "pitch", "pizza", "place", "planet", "plastic", "plate", "play", "please", "pledge", "pluck", "plug", "plunge", "poem", "poet", "point", "polar", "pole", "police", "pond", "pony", "pool", "popular", "portion", "position", "possible", "post", "potato", "pottery", "poverty", "powder", "power", "practice", "praise", "predict", "prefer", "prepare", "present", "pretty", "prevent", "price", "pride", "primary", "print", "priority", "prison", "private", "prize", "problem", "process", "produce", "profit", "program", "project", "promote", "proof", "property", "prosper", "protect", "proud", "provide", "public", "pudding", "pull", "pulp", "pulse", "pumpkin", "punch", "pupil", "puppy", "purchase", "purity", "purpose", "purse", "push", "put", "puzzle", "pyramid", "quality", "quantum", "quarter", "question", "quick", "quit", "quiz", "quote", "rabbit", "raccoon", "race", "rack", "radar", "radio", "rail", "rain", "raise", "rally", "ramp", "ranch", "random", "range", "rapid", "rare", "rate", "rather", "raven", "raw", "razor", "ready", "real", "reason", "rebel", "rebuild", "recall", "receive", "recipe", "record", "recycle", "reduce", "reflect", "reform", "refuse", "region", "regret", "regular", "reject", "relax", "release", "relief", "rely", "remain", "remember", "remind", "remove", "render", "renew", "rent", "reopen", "repair", "repeat", "replace", "report", "require", "rescue", "resemble", "resist", "resource", "response", "result", "retire", "retreat", "return", "reunion", "reveal", "review", "reward", "rhythm", "rib", "ribbon", "rice", "rich", "ride", "ridge", "rifle", "right", "rigid", "ring", "riot", "ripple", "risk", "ritual", "rival", "river", "road", "roast", "robot", "robust", "rocket", "romance", "roof", "rookie", "room", "rose", "rotate", "rough", "round", "route", "royal", "rubber", "rude", "rug", "rule", "run", "runway", "rural", "sad", "saddle", "sadness", "safe", "sail", "salad", "salmon", "salon", "salt", "salute", "same", "sample", "sand", "satisfy", "satoshi", "sauce", "sausage", "save", "say", "scale", "scan", "scare", "scatter", "scene", "scheme", "school", "science", "scissors", "scorpion", "scout", "scrap", "screen", "script", "scrub", "sea", "search", "season", "seat", "second", "secret", "section", "security", "seed", "seek", "segment", "select", "sell", "seminar", "senior", "sense", "sentence", "series", "service", "session", "settle", "setup", "seven", "shadow", "shaft", "shallow", "share", "shed", "shell", "sheriff", "shield", "shift", "shine", "ship", "shiver", "shock", "shoe", "shoot", "shop", "short", "shoulder", "shove", "shrimp", "shrug", "shuffle", "shy", "sibling", "sick", "side", "siege", "sight", "sign", "silent", "silk", "silly", "silver", "similar", "simple", "since", "sing", "siren", "sister", "situate", "six", "size", "skate", "sketch", "ski", "skill", "skin", "skirt", "skull", "slab", "slam", "sleep", "slender", "slice", "slide", "slight", "slim", "slogan", "slot", "slow", "slush", "small", "smart", "smile", "smoke", "smooth", "snack", "snake", "snap", "sniff", "snow", "soap", "soccer", "social", "sock", "soda", "soft", "solar", "soldier", "solid", "solution", "solve", "someone", "song", "soon", "sorry", "sort", "soul", "sound", "soup", "source", "south", "space", "spare", "spatial", "spawn", "speak", "special", "speed", "spell", "spend", "sphere", "spice", "spider", "spike", "spin", "spirit", "split", "spoil", "sponsor", "spoon", "sport", "spot", "spray", "spread", "spring", "spy", "square", "squeeze", "squirrel", "stable", "stadium", "staff", "stage", "stairs", "stamp", "stand", "start", "state", "stay", "steak", "steel", "stem", "step", "stereo", "stick", "still", "sting", "stock", "stomach", "stone", "stool", "story", "stove", "strategy", "street", "strike", "strong", "struggle", "student", "stuff", "stumble", "style", "subject", "submit", "subway", "success", "such", "sudden", "suffer", "sugar", "suggest", "suit", "summer", "sun", "sunny", "sunset", "super", "supply", "supreme", "sure", "surface", "surge", "surprise", "surround", "survey", "suspect", "sustain", "swallow", "swamp", "swap", "swarm", "swear", "sweet", "swift", "swim", "swing", "switch", "sword", "symbol", "symptom", "syrup", "system", "table", "tackle", "tag", "tail", "talent", "talk", "tank", "tape", "target", "task", "taste", "tattoo", "taxi", "teach", "team", "tell", "ten", "tenant", "tennis", "tent", "term", "test", "text", "thank", "that", "theme", "then", "theory", "there", "they", "thing", "this", "thought", "three", "thrive", "throw", "thumb", "thunder", "ticket", "tide", "tiger", "tilt", "timber", "time", "tiny", "tip", "tired", "tissue", "title", "toast", "tobacco", "today", "toddler", "toe", "together", "toilet", "token", "tomato", "tomorrow", "tone", "tongue", "tonight", "tool", "tooth", "top", "topic", "topple", "torch", "tornado", "tortoise", "toss", "total", "tourist", "toward", "tower", "town", "toy", "track", "trade", "traffic", "tragic", "train", "transfer", "trap", "trash", "travel", "tray", "treat", "tree", "trend", "trial", "tribe", "trick", "trigger", "trim", "trip", "trophy", "trouble", "truck", "true", "truly", "trumpet", "trust", "truth", "try", "tube", "tuition", "tumble", "tuna", "tunnel", "turkey", "turn", "turtle", "twelve", "twenty", "twice", "twin", "twist", "two", "type", "typical", "ugly", "umbrella", "unable", "unaware", "uncle", "uncover", "under", "undo", "unfair", "unfold", "unhappy", "uniform", "unique", "unit", "universe", "unknown", "unlock", "until", "unusual", "unveil", "update", "upgrade", "uphold", "upon", "upper", "upset", "urban", "urge", "usage", "use", "used", "useful", "useless", "usual", "utility", "vacant", "vacuum", "vague", "valid", "valley", "valve", "van", "vanish", "vapor", "various", "vast", "vault", "vehicle", "velvet", "vendor", "venture", "venue", "verb", "verify", "version", "very", "vessel", "veteran", "viable", "vibrant", "vicious", "victory", "video", "view", "village", "vintage", "violin", "virtual", "virus", "visa", "visit", "visual", "vital", "vivid", "vocal", "voice", "void", "volcano", "volume", "vote", "voyage", "wage", "wagon", "wait", "walk", "wall", "walnut", "want", "warfare", "warm", "warrior", "wash", "wasp", "waste", "water", "wave", "way", "wealth", "weapon", "wear", "weasel", "weather", "web", "wedding", "weekend", "weird", "welcome", "west", "wet", "whale", "what", "wheat", "wheel", "when", "where", "whip", "whisper", "wide", "width", "wife", "wild", "will", "win", "window", "wine", "wing", "wink", "winner", "winter", "wire", "wisdom", "wise", "wish", "witness", "wolf", "woman", "wonder", "wood", "wool", "word", "work", "world", "worry", "worth", "wrap", "wreck", "wrestle", "wrist", "write", "wrong", "yard", "year", "yellow", "you", "young", "youth", "zebra", "zero", "zone", "zoo" ]; 
+
+
+    const styleDescriptions = {
+      wild: "Picks any available block (fully random).",
+      orderly: "Picks 4 in a row, then 4 in a column, repeats.",
+      follower: "Picks near your last pick (within 4 blocks).",
+      random: "Changes style for every pick."
+    };
+    const compStyleSelect = document.getElementById('compStyle');
+    const styleDescSpan = document.getElementById('styleDesc');
+    compStyleSelect.addEventListener('change', () => {
+      styleDescSpan.textContent = styleDescriptions[compStyleSelect.value];
+    });
+    styleDescSpan.textContent = styleDescriptions[compStyleSelect.value];
+
+    const GRID_SIZE = 12;
+    const PICK_LIMIT = 36;
+    const grid = document.getElementById('grid');
+    const statusDiv = document.getElementById('status');
+    const startOverlay = document.getElementById('startOverlay');
+    const seedOverlay = document.getElementById('seedOverlay');
+    const genSeedBtn = document.getElementById('genSeedBtn');
+    let userSelections = 0;
+    let computerSelections = 0;
+    let currentTurn = 0;
+    let computerPicksLeft = 0;
+    const selectedBlocks = [];
+    const selectedBlockSet = new Set();
+    let lastUserPick = null;
+
+    let orderlyPhase = 0;
+    let orderlyIndex = 0;
+    let orderlyCount = 0;
+
+    let blockedBox = null;
+    let blockedBoxPlaced = false;
+    let placementMode = false;
+    let afterFirstTurn = false;
+
+    // Salt and RNG state
+    let salt = null;
+    let rngCounter = 0;
+
+    // Generate 32-byte random salt
+    function generateSalt() {
+      try {
+        salt = new Uint8Array(32);
+        window.crypto.getRandomValues(salt);
+        rngCounter = 0; // Reset counter for new salt
+      } catch (e) {
+        console.error('Error generating salt:', e);
+        salt = new Uint8Array(32).fill(0); // Fallback to zeroed salt
+      }
+    }
+
+    // Seeded RNG using SHA-256 and salt
+    async function getSeededRandom() {
+      try {
+        // Combine salt with counter
+        const input = new Uint8Array(salt.length + 4);
+        input.set(salt);
+        // Encode counter as 4-byte integer
+        input[salt.length] = (rngCounter >> 24) & 0xFF;
+        input[salt.length + 1] = (rngCounter >> 16) & 0xFF;
+        input[salt.length + 2] = (rngCounter >> 8) & 0xFF;
+        input[salt.length + 3] = rngCounter & 0xFF;
+        rngCounter++;
+
+        // Generate SHA-256 hash
+        const hashBuffer = await window.crypto.subtle.digest('SHA-256', input);
+        const hashArray = new Uint8Array(hashBuffer);
+        // Use first 4 bytes as a 32-bit integer
+        const value = (
+          (hashArray[0] << 24) |
+          (hashArray[1] << 16) |
+          (hashArray[2] << 8) |
+          hashArray[3]
+        ) >>> 0; // Unsigned 32-bit
+        // Normalize to [0, 1)
+        return value / 0x100000000;
+      } catch (e) {
+        console.error('Error in seeded RNG:', e);
+        return Math.random(); // Fallback to Math.random
+      }
+    }
+
+    function updateStatus() {
+      if (selectedBlocks.length >= PICK_LIMIT) {
+        statusDiv.textContent = "All blocks were placed";
+        statusDiv.classList.add('status-complete');
+      } else if (placementMode) {
+        statusDiv.textContent = "Place the 3x3 blocked area anywhere on the grid (yellow highlight).";
+        statusDiv.classList.remove('status-complete');
+      } else if (!afterFirstTurn) {
+        statusDiv.textContent = `Your turn: pick your first block!`;
+        statusDiv.classList.remove('status-complete');
+      } else if (currentTurn === 0) {
+        statusDiv.textContent = `Your turn: pick a block! (${selectedBlocks.length}/${PICK_LIMIT})`;
+        statusDiv.classList.remove('status-complete');
+      } else {
+        statusDiv.textContent = "Computer is picking...";
+        statusDiv.classList.remove('status-complete');
+      }
+    }
+
+    function showStartOverlay() {
+      startOverlay.classList.remove('hidden');
+    }
+
+    function createGrid() {
+      try {
+        grid.innerHTML = '';
+        for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+          const div = document.createElement('div');
+          div.className = 'block';
+          div.dataset.idx = i;
+          div.addEventListener('click', onBlockClick);
+          grid.appendChild(div);
+        }
+        grid.appendChild(startOverlay);
+        grid.appendChild(seedOverlay);
+        showStartOverlay();
+      } catch (e) {
+        console.error('Error creating grid:', e);
+      }
+    }
+
+    function onBlockClick(e) {
+      const idx = parseInt(e.target.dataset.idx);
+      if (placementMode) {
+        const row = Math.floor(idx / GRID_SIZE);
+        const col = idx % GRID_SIZE;
+        if (canPlaceBlockedBox(row, col)) {
+          blockedBox = { row, col };
+          blockedBoxPlaced = true;
+          placementMode = false;
+          updateBlockedBlocks();
+          updateStatus();
+          currentTurn = 0;
+        }
+        return;
+      }
+      if (!afterFirstTurn) {
+        if (selectedBlockSet.has(idx) || e.target.classList.contains('blocked') || e.target.classList.contains('blockedBoxFixed')) return;
+        lastUserPick = idx;
+        selectBlock(idx, 'user');
+        afterFirstTurn = true;
+        currentTurn = 1;
+        updateStatus();
+        setTimeout(() => {
+          computerPicksLeft = 2;
+          computerMove(lastUserPick, () => {
+            placementMode = true;
+            updateBlockedBlocks();
+            updateStatus();
+          });
+        }, 400);
+        return;
+      }
+      if (currentTurn !== 0 || selectedBlocks.length >= PICK_LIMIT) return;
+      if (selectedBlockSet.has(idx) || e.target.classList.contains('blocked') || e.target.classList.contains('blockedBoxFixed')) return;
+      lastUserPick = idx;
+      selectBlock(idx, 'user');
+      currentTurn = 1;
+      computerPicksLeft = 2;
+      updateStatus();
+      setTimeout(() => computerMove(lastUserPick), 400);
+    }
+
+    function selectBlock(idx, who) {
+      selectedBlocks.push(idx);
+      selectedBlockSet.add(idx);
+      const blockDiv = grid.children[idx];
+      blockDiv.classList.add('selected');
+      if (who === 'computer') blockDiv.classList.add('computer');
+      if (who === 'user') blockDiv.classList.remove('computer');
+      if (who === 'user') userSelections++; else computerSelections++;
+      updateBlockedBlocks();
+      if (selectedBlocks.length === PICK_LIMIT) {
+        showEntropy();
+        updateStatus();
+      }
+    }
+
+    function updateBlockedBlocks() {
+      try {
+        for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+          const blockDiv = grid.children[i];
+          blockDiv.className = 'block';
+          if (selectedBlockSet.has(i)) {
+            blockDiv.classList.add('blocked');
+          }
+          blockDiv.removeEventListener('click', onBlockClick);
+          blockDiv.addEventListener('click', onBlockClick);
+        }
+        for (let i = 0; i < selectedBlocks.length; i++) {
+          const idx = selectedBlocks[i];
+          const blockDiv = grid.children[idx];
+          blockDiv.classList.add('selected');
+          if ((i % 3) !== 0) blockDiv.classList.add('computer');
+          else blockDiv.classList.remove('computer');
+        }
+        if (placementMode) {
+          for (let row = 0; row <= GRID_SIZE - 3; row++) {
+            for (let col = 0; col <= GRID_SIZE - 3; col++) {
+              if (canPlaceBlockedBox(row, col)) {
+                let idx = row * GRID_SIZE + col;
+                const blockDiv = grid.children[idx];
+                blockDiv.classList.remove('blocked');
+                blockDiv.classList.add('placementCandidate');
+              }
+            }
+          }
+        }
+        if (blockedBoxPlaced && blockedBox) {
+          for (let r = blockedBox.row; r < blockedBox.row + 3; r++) {
+            for (let c = blockedBox.col; c < blockedBox.col + 3; c++) {
+              let idx = r * GRID_SIZE + c;
+              if (!selectedBlockSet.has(idx)) {
+                grid.children[idx].classList.add('blockedBoxFixed');
+                grid.children[idx].classList.add('blocked');
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Error updating blocked blocks:', e);
+      }
+    }
+
+    function canPlaceBlockedBox(row, col) {
+      if (row < 0 || col < 0 || row > GRID_SIZE - 3 || col > GRID_SIZE - 3) return false;
+      for (let r = row; r < row + 3; r++) {
+        for (let c = col; c < col + 3; c++) {
+          let idx = r * GRID_SIZE + c;
+          if (selectedBlockSet.has(idx)) return false;
+        }
+      }
+      return true;
+    }
+
+    async function computerMove(lastUserPickIdx, callback) {
+      if (selectedBlocks.length >= PICK_LIMIT) {
+        if (callback) callback();
+        updateStatus();
+        return;
+      }
+      let style = compStyleSelect.value;
+      if (style === "random") {
+        const styles = ["wild", "orderly", "follower"];
+        style = styles[Math.floor((await getSeededRandom()) * styles.length)];
+      }
+      let pick = null;
+      if (style === "wild") {
+        pick = await wildPick();
+      } else if (style === "orderly") {
+        pick = await orderlyPick();
+      } else if (style === "follower") {
+        pick = await followerPick(lastUserPickIdx);
+        if (pick === null) pick = await wildPick();
+      }
+      if (pick === null) {
+        if (callback) callback();
+        updateStatus();
+        return;
+      }
+      selectBlock(pick, 'computer');
+      computerPicksLeft--;
+      if (selectedBlocks.length >= PICK_LIMIT) {
+        if (callback) callback();
+        updateStatus();
+        return;
+      }
+      if (computerPicksLeft > 0) {
+        setTimeout(() => computerMove(lastUserPickIdx, callback), 300);
+      } else {
+        currentTurn = 0;
+        updateStatus();
+        if (callback) callback();
+      }
+    }
+
+    async function wildPick() {
+      let available = [];
+      for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+        if (!selectedBlockSet.has(i) && !isInBlockedBox(i)) available.push(i);
+      }
+      if (available.length === 0) return null;
+      const random = await getSeededRandom();
+      return available[Math.floor(random * available.length)];
+    }
+
+    async function orderlyPick() {
+      for (let tries = 0; tries < 2 * GRID_SIZE; tries++) {
+        let indices = [];
+        if (orderlyPhase === 0) {
+          let row = orderlyIndex % GRID_SIZE;
+          for (let col = 0; col < GRID_SIZE; col++) {
+            let idx = row * GRID_SIZE + col;
+            if (!selectedBlockSet.has(idx) && !isInBlockedBox(idx)) indices.push(idx);
+          }
+        } else {
+          let col = orderlyIndex % GRID_SIZE;
+          for (let row = 0; row < GRID_SIZE; row++) {
+            let idx = row * GRID_SIZE + col;
+            if (!selectedBlockSet.has(idx) && !isInBlockedBox(idx)) indices.push(idx);
+          }
+        }
+        if (indices.length > 0) {
+          orderlyCount++;
+          if (orderlyCount >= 4) {
+            orderlyCount = 0;
+            orderlyPhase = 1 - orderlyPhase;
+            orderlyIndex = (orderlyIndex + 1) % GRID_SIZE;
+          }
+          const random = await getSeededRandom();
+          return indices[Math.floor(random * indices.length)];
+        } else {
+          orderlyCount = 0;
+          orderlyPhase = 1 - orderlyPhase;
+          orderlyIndex = (orderlyIndex + 1) % GRID_SIZE;
+        }
+      }
+      return await wildPick();
+    }
+
+    async function followerPick(lastUserPickIdx) {
+      if (lastUserPickIdx == null) return null;
+      let userRow = Math.floor(lastUserPickIdx / GRID_SIZE);
+      let userCol = lastUserPickIdx % GRID_SIZE;
+      let available = [];
+      for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+        if (selectedBlockSet.has(i) || isInBlockedBox(i)) continue;
+        let row = Math.floor(i / GRID_SIZE);
+        let col = i % GRID_SIZE;
+        if (Math.abs(row - userRow) <= 4 && Math.abs(col - userCol) <= 4) {
+          available.push(i);
+        }
+      }
+      if (available.length === 0) return null;
+      const random = await getSeededRandom();
+      return available[Math.floor(random * available.length)];
+    }
+
+    function isInBlockedBox(idx) {
+      if (!blockedBoxPlaced || !blockedBox) return false;
+      let row = Math.floor(idx / GRID_SIZE);
+      let col = idx % GRID_SIZE;
+      return (
+        row >= blockedBox.row && row < blockedBox.row + 3 &&
+        col >= blockedBox.col && col < blockedBox.col + 3
+      );
+    }
+
+    function showEntropy() {
+      const entropyArr = selectedBlocks.slice(0, PICK_LIMIT);
+      const entropyBytes = new Uint8Array(PICK_LIMIT + 2);
+      for (let i = 0; i < PICK_LIMIT; i++) {
+        entropyBytes[i] = entropyArr[i];
+      }
+      entropyBytes[PICK_LIMIT] = blockedBox ? blockedBox.row : 0;
+      entropyBytes[PICK_LIMIT + 1] = blockedBox ? blockedBox.col : 0;
+      const hashDiv = document.getElementById('hash');
+      window.crypto.subtle.digest('SHA-256', entropyBytes).then(buffer => {
+        const hash = Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+        hashDiv.innerHTML = `<span id="hash-label">your entropy 256 seed:</span><pre>${hash}</pre>`;
+        genSeedBtn.disabled = false;
+      }).catch(e => console.error('Error generating hash:', e));
+    }
+
+    async function entropyToMnemonic(hexEntropy) {
+      try {
+        const entropyBytes = hexToBytes(hexEntropy);
+        const hashBuffer = await window.crypto.subtle.digest('SHA-256', entropyBytes);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const checksumBits = hashArray[0].toString(2).padStart(8, '0');
+        let entropyBits = '';
+        for (let b of entropyBytes) entropyBits += b.toString(2).padStart(8, '0');
+        const bits = entropyBits + checksumBits;
+        const words = [];
+        for (let i = 0; i < 24; i++) {
+          const idx = parseInt(bits.slice(i * 11, (i + 1) * 11), 2);
+          words.push(BIP39_WORDS[idx]);
+        }
+        return words.join(' ');
+      } catch (e) {
+        console.error('Error generating mnemonic:', e);
+        return '';
+      }
+    }
+
+    function hexToBytes(hex) {
+      const bytes = [];
+      for (let c = 0; c < hex.length; c += 2) {
+        bytes.push(parseInt(hex.substr(c, 2), 16));
+      }
+      return new Uint8Array(bytes);
+    }
+
+    startOverlay.addEventListener('click', () => {
+      startOverlay.classList.add('hidden');
+    });
+
+    seedOverlay.addEventListener('click', async () => {
+      seedOverlay.classList.add('hidden');
+      const hashDiv = document.getElementById('hash');
+      const pre = hashDiv.querySelector('pre');
+      if (!pre) {
+        document.getElementById('mnemonic').innerHTML = '<span style="color:#ffb300">No entropy yet!</span>';
+        return;
+      }
+      const hex = pre.textContent.trim();
+      if (!/^[0-9a-f]{64}$/.test(hex)) {
+        document.getElementById('mnemonic').innerHTML = '<span style="color:#ffb300">Invalid entropy!</span>';
+        return;
+      }
+      const mnemonic = await entropyToMnemonic(hex);
+      document.getElementById('mnemonic').innerHTML = `<div class="seed-words">${mnemonic}</div>`;
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', function() {
+      userSelections = 0;
+      computerSelections = 0;
+      currentTurn = 0;
+      computerPicksLeft = 0;
+      selectedBlocks.length = 0;
+      selectedBlockSet.clear();
+      orderlyPhase = 0;
+      orderlyIndex = 0;
+      orderlyCount = 0;
+      lastUserPick = null;
+      blockedBox = null;
+      blockedBoxPlaced = false;
+      placementMode = false;
+      afterFirstTurn = false;
+      generateSalt(); // Regenerate salt on reset
+      createGrid();
+      updateBlockedBlocks();
+      updateStatus();
+      document.getElementById('hash').innerHTML = '';
+      document.getElementById('mnemonic').innerHTML = '';
+      genSeedBtn.disabled = true;
+    });
+
+    document.getElementById('genSeedBtn').addEventListener('click', function() {
+      if (!genSeedBtn.disabled) {
+        seedOverlay.classList.remove('hidden');
+      }
+    });
+
+    try {
+      generateSalt(); // Initial salt generation
+      createGrid();
+      updateBlockedBlocks();
+      updateStatus();
+    } catch (e) {
+      console.error('Error initializing game:', e);
+    }
+  </script>
+</body>
+</html>
