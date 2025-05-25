@@ -38,6 +38,8 @@ The game continues with alternating turns (1 user pick, 2 computer picks) until 
 Entropy Generation:
 The indices of the 36 selected blocks, along with the coordinates of the 3x3 blocked area, are hashed using SHA-256 to produce a 256-bit entropy seed.
 
+Salting and other undisclosed ways of peppering are adding to the randomness and non-replayable randomness
+
 The entropy is displayed as a hexadecimal string.
 
 Mnemonic Generation:
